@@ -13,7 +13,7 @@ from astropy.time import Time
 service     = pyvo.dal.TAPService("https://gea.esac.esa.int/tap-server/tap")
 simbad_tap  = pyvo.dal.TAPService("https://simbad.cds.unistra.fr/simbad/sim-tap")
 
-_DEFAULT_URL = "http://127.0.0.1:8000/mast/api/v1/unit/start_acquisition_and_guiding"
+_DEFAULT_URL = "http://mast02:8000/mast/api/v1/unit/start_acquisition_and_guiding"
 
 LOCATION = EarthLocation(lat=30.0483 * u.deg, lon=35.0233 * u.deg)
 
@@ -108,7 +108,7 @@ def query_gaia_box(ra_center, dec_center, Gmag_target, dG=0.5, ra_range_deg=0.5,
 
     cut = (
         (r['parallax'] > 0)
-        & (r['parallax_over_error'] > 5)
+        & (r['parallax_over_error'] > 10)
         & np.isfinite(r['pmra'])
         & np.isfinite(r['pmdec'])
     )
@@ -236,8 +236,31 @@ def open_params_window(ra_h, dec_d, gmag):
 
         threading.Thread(target=_do, daemon=True).start()
 
+    def stop():
+        url = vars_["URL"].get().replace("start_acquisition_and_guiding",
+                                         "stop_acquisition_and_guiding")
+        stop_btn.config(state="disabled")
+        set_response("Stopping…")
+
+        def _do():
+            try:
+                r = req.get(url,
+                            headers={"accept": "application/json"},
+                            proxies={"http": None, "https": None},
+                            timeout=30)
+                msg = f"{r.status_code}\n{r.text}"
+            except Exception as e:
+                msg = f"Error: {e}"
+            win.after(0, lambda m=msg: set_response(m))
+            win.after(0, lambda: stop_btn.config(state="normal"))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    btn_row = len(fields)
     send_btn = ttk.Button(f, text="Send", command=send)
-    send_btn.grid(row=len(fields), column=0, columnspan=2, pady=(14, 0))
+    send_btn.grid(row=btn_row, column=0, pady=(14, 0), padx=(0, 4), sticky="e")
+    stop_btn = ttk.Button(f, text="Stop", command=stop)
+    stop_btn.grid(row=btn_row, column=1, pady=(14, 0), padx=(4, 0), sticky="w")
 
 
 # ---------------------------------------------------------------------------
